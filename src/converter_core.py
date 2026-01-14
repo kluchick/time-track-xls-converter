@@ -146,6 +146,10 @@ def write_to_output_file(template_bytes: bytes, data_df: pd.DataFrame, output_pa
         # Data starts from row 3 (row 1 is template header, row 2 is column headers)
         data_start_row = 3
 
+        # Check if column A in first data row has a value to copy to all imported rows
+        column_a_value = ws.cell(data_start_row, 1).value  # A3
+        copy_column_a = column_a_value is not None and str(column_a_value).strip() != ""
+
         # Clear existing data in columns B, C, D only (preserve column A)
         if ws.max_row >= data_start_row:
             for row in range(data_start_row, ws.max_row + 1):
@@ -155,6 +159,10 @@ def write_to_output_file(template_bytes: bytes, data_df: pd.DataFrame, output_pa
         # Write data starting from row 3, columns B, C, D
         # Map: Effort -> B (index 2), Description -> C (index 3), Date -> D (index 4)
         for row_idx, (_, row_data) in enumerate(data_df.iterrows(), start=data_start_row):
+            # If column A has a value in first data row, copy it to all imported rows
+            if copy_column_a:
+                ws.cell(row_idx, 1).value = column_a_value  # Column A
+
             for col_idx, col_name in enumerate(OUTPUT_COLUMNS, start=2):  # start=2 for column B
                 value = row_data[col_name]
 
@@ -167,7 +175,11 @@ def write_to_output_file(template_bytes: bytes, data_df: pd.DataFrame, output_pa
 
         # Save workbook
         wb.save(output_path)
-        print(f"Written {len(data_df)} rows to '{EFFORTS_SHEET_NAME}' sheet (columns B, C, D)")
+        if copy_column_a:
+            print(f"Written {len(data_df)} rows to '{EFFORTS_SHEET_NAME}' sheet (columns A, B, C, D)")
+            print(f"  - Copied column A value '{column_a_value}' to all imported rows")
+        else:
+            print(f"Written {len(data_df)} rows to '{EFFORTS_SHEET_NAME}' sheet (columns B, C, D)")
 
     except Exception as e:
         raise ConversionError(f"Error writing output file: {str(e)}")

@@ -79,7 +79,7 @@ Core conversion functionality separated from UI:
 **Main Functions:**
 - `validate_input_data(file_path)`: Returns `(is_valid: bool, error_msg: str)`
 - `read_and_process_input(file_path)`: Returns processed DataFrame
-- `write_to_output_file(template_bytes, data_df, output_path)`: Writes to Excel
+- `write_to_output_file(template_bytes, data_df, output_path)`: Writes to Excel, copies column A from row 3 if present
 - `convert_excel_file(input_path, template_bytes, output_dir)`: Main conversion orchestrator
 
 **Exception Handling:**
@@ -125,7 +125,7 @@ venv/                 # Python virtual environment (gitignored)
 - Duration (minutes) → Effort (hours)
 
 **Output columns (output.xlsx "Efforts" sheet):**
-- Column A: (preserved, not touched)
+- Column A: If filled in row 3 (first data row), value is copied to all imported rows; otherwise preserved
 - Column B: Effort (Duration / 60)
 - Column C: Description (Project Task)
 - Column D: Date
@@ -176,7 +176,7 @@ The converter handles:
 - Maintain the column mapping constants: `INPUT_COLUMNS`, `OUTPUT_COLUMNS`, `EFFORTS_SHEET_NAME`
 - Always raise `ConversionError` for expected failures (propagates to UI)
 - Preserve row 3 as data start (rows 1-2 are headers in Efforts sheet)
-- Keep column A untouched in output (only write to B, C, D)
+- Column A handling: If row 3 column A has a value, copy it to all imported rows; otherwise preserve existing values
 - Validate all input data before processing
 - Handle pandas datetime objects properly for Excel date formatting
 
