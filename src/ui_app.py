@@ -17,7 +17,8 @@ from template_data import (
     get_template_bytes,
     save_custom_template,
     get_template_info,
-    has_custom_template
+    has_custom_template,
+    get_app_base_dir
 )
 import openpyxl
 
@@ -307,7 +308,7 @@ class ConverterApp(TkinterDnD.Tk):
             file_path = filedialog.askopenfilename(
                 title="Select Excel template file",
                 filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
-                initialdir=str(Path(__file__).parent.parent / "files")
+                initialdir=str(get_app_base_dir())
             )
 
             if file_path:
@@ -365,7 +366,7 @@ class ConverterApp(TkinterDnD.Tk):
             file_path = filedialog.askopenfilename(
                 title="Select input Excel file",
                 filetypes=[("Excel files", "*.xlsx *.xls"), ("All files", "*.*")],
-                initialdir=str(Path(__file__).parent.parent / "files")
+                initialdir=str(get_app_base_dir())
             )
 
             if file_path:
@@ -441,8 +442,8 @@ class ConverterApp(TkinterDnD.Tk):
         Perform conversion and update UI with results.
         """
         try:
-            # Get script directory for output (project root)
-            script_dir = Path(__file__).parent.parent
+            # Get base directory for output (project root when running as script, .exe dir when running as .exe)
+            output_dir = get_app_base_dir()
 
             # Get template bytes
             template_bytes = get_template_bytes()
@@ -451,7 +452,7 @@ class ConverterApp(TkinterDnD.Tk):
             output_path = convert_excel_file(
                 input_path=self.selected_file,
                 template_bytes=template_bytes,
-                output_dir=script_dir
+                output_dir=output_dir
             )
 
             # Update UI on success

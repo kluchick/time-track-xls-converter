@@ -7,10 +7,33 @@ import base64
 from io import BytesIO
 from pathlib import Path
 import shutil
+import sys
 
 
-# Path to custom template file (in files/ directory)
-CUSTOM_TEMPLATE_PATH = Path(__file__).parent.parent / "files" / "custom_template.xlsx"
+def get_app_base_dir() -> Path:
+    """
+    Get the base directory for the application.
+    
+    - If running as .exe (PyInstaller): returns directory containing the executable
+    - If running as Python script: returns project root directory (parent of src/)
+    
+    Returns:
+        Path to the base directory where files should be stored
+    """
+    if getattr(sys, 'frozen', False) or hasattr(sys, '_MEIPASS'):
+        # Running as compiled .exe (PyInstaller)
+        # sys.executable points to the .exe file
+        return Path(sys.executable).parent
+    else:
+        # Running as Python script
+        # Return project root (parent of src/)
+        return Path(__file__).parent.parent
+
+
+# Path to custom template file (in base directory)
+def get_custom_template_path() -> Path:
+    """Get path to custom template file in base directory"""
+    return get_app_base_dir() / "custom_template.xlsx"
 
 
 TEMPLATE_BASE64 = """
@@ -1253,12 +1276,14 @@ def get_template_stream() -> BytesIO:
 
 def has_custom_template() -> bool:
     """Check if custom template file exists and is readable"""
-    return CUSTOM_TEMPLATE_PATH.exists() and CUSTOM_TEMPLATE_PATH.is_file()
+    custom_path = get_custom_template_path()
+    return custom_path.exists() and custom_path.is_file()
 
 
 def get_custom_template_bytes() -> bytes:
     """Load custom template from disk"""
-    with open(CUSTOM_TEMPLATE_PATH, 'rb') as f:
+    custom_path = get_custom_template_path()
+    with open(custom_path, 'rb') as f:
         return f.read()
 
 
@@ -1272,7 +1297,8 @@ def save_custom_template(source_path: Path) -> None:
     Raises:
         Exception: If file cannot be copied
     """
-    shutil.copy2(source_path, CUSTOM_TEMPLATE_PATH)
+    custom_path = get_custom_template_path()
+    shutil.copy2(source_path, custom_path)
 
 
 def get_template_info() -> str:
