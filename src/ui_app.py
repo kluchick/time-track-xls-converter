@@ -1,260 +1,298 @@
 """
 Excel Time Tracker Converter - UI Application
 
-Flet-based graphical user interface for Excel time tracking conversion.
-Supports drag-and-drop file selection and displays conversion status.
+CustomTkinter + tkinterdnd2 based graphical user interface for Excel time tracking conversion.
+Supports native OS file drag-and-drop, manual file selection, and displays conversion status.
 """
 
-import flet as ft
+import customtkinter as ctk
+from tkinterdnd2 import DND_FILES, TkinterDnD
 from pathlib import Path
-import threading
 import subprocess
 import sys
+from tkinter import filedialog
 
 from converter_core import convert_excel_file, validate_input_data, ConversionError
 from template_data import get_template_bytes
 
 
-class ConverterApp:
-    """Main application class for the Excel converter UI"""
+class ConverterApp(TkinterDnD.Tk):
+    """Main application class for the Excel converter UI with drag-and-drop support"""
 
-    def __init__(self, page: ft.Page):
-        """
-        Initialize the converter application.
+    def __init__(self):
+        """Initialize the converter application"""
+        super().__init__()
 
-        Args:
-            page: Flet page object
-        """
-        self.page = page
+        # Initialize state
         self.selected_file = None
         self.output_file = None
 
-        # Setup page
-        self.page.title = "Excel Time Tracker Converter"
-        self.page.window_width = 650
-        self.page.window_height = 550
-        self.page.window_resizable = False
-        self.page.padding = 20
+        # Configure theme (must be before creating widgets)
+        ctk.set_appearance_mode("light")
+        ctk.set_default_color_theme("blue")
 
-        # Initialize UI components
+        # Setup window
+        self.title("Excel Time Tracker Converter")
+        self.geometry("650x700")
+        self.resizable(False, False)
+        self.configure(bg="#f0f0f0")
+
+        # Initialize UI
         self.setup_ui()
 
     def setup_ui(self):
         """Setup all UI components and layout"""
-        # No file picker needed - using TextField instead
 
-        # Title
-        title = ft.Text(
-            "Excel Time Tracker Converter",
-            size=28,
-            weight=ft.FontWeight.BOLD,
-            color=ft.Colors.BLUE_900
+        # Title section
+        title_frame = ctk.CTkFrame(self, fg_color="transparent")
+        title_frame.pack(pady=(20, 10), padx=20)
+
+        title = ctk.CTkLabel(
+            title_frame,
+            text="Excel Time Tracker Converter",
+            font=("Arial", 28, "bold"),
+            text_color="#1565c0"
         )
+        title.pack()
 
-        # Subtitle
-        subtitle = ft.Text(
-            "Convert time tracking data from minutes to hours",
-            size=14,
-            color=ft.Colors.GREY_700
+        subtitle = ctk.CTkLabel(
+            title_frame,
+            text="Convert time tracking data from minutes to hours",
+            font=("Arial", 14),
+            text_color="gray"
         )
+        subtitle.pack(pady=(5, 0))
 
-        # Drop zone for file selection
-        self.drop_zone = self.create_drop_zone()
+        # Drop zone
+        self.create_drop_zone()
 
         # Selected file display
-        self.selected_file_text = ft.Text(
-            "",
-            size=12,
-            color=ft.Colors.GREY_600,
-            visible=False,
-            italic=True
+        self.selected_file_label = ctk.CTkLabel(
+            self,
+            text="",
+            font=("Arial", 12, "italic"),
+            text_color="gray"
         )
+        self.selected_file_label.pack(pady=(10, 0))
+
+        # Separator
+        separator = ctk.CTkFrame(self, height=2, fg_color="lightgray")
+        separator.pack(pady=20, padx=20, fill="x")
 
         # Status area
-        self.status_text = ft.Text(
-            "Ready to convert",
-            size=14,
-            weight=ft.FontWeight.W_500
+        self.status_label = ctk.CTkLabel(
+            self,
+            text="Ready to convert",
+            font=("Arial", 14, "bold")
         )
+        self.status_label.pack(pady=10)
 
-        self.progress_bar = ft.ProgressBar(
-            width=400,
-            visible=False
-        )
+        self.progress_bar = ctk.CTkProgressBar(self, width=400, mode="indeterminate")
+        self.progress_bar.pack(pady=10)
+        self.progress_bar.pack_forget()  # Hide initially
 
-        self.output_path_text = ft.Text(
-            "",
-            size=12,
-            color=ft.Colors.GREEN_700,
-            visible=False,
-            selectable=True
+        self.output_path_label = ctk.CTkLabel(
+            self,
+            text="",
+            font=("Arial", 12),
+            text_color="green"
         )
+        self.output_path_label.pack()
+        self.output_path_label.pack_forget()  # Hide initially
 
         # Action buttons
-        self.convert_btn = ft.Button(
-            "Convert File",
-            icon="transform",
-            on_click=self.on_convert_clicked,
-            disabled=True,
-            style=ft.ButtonStyle(
-                bgcolor=ft.Colors.BLUE_700,
-                color=ft.Colors.WHITE
-            )
+        button_container = ctk.CTkFrame(self, fg_color="transparent")
+        button_container.pack(pady=20)
+
+        self.convert_btn = ctk.CTkButton(
+            button_container,
+            text="Convert File",
+            width=150,
+            height=35,
+            font=("Arial", 14, "bold"),
+            command=self.on_convert_clicked,
+            state="disabled"
         )
+        self.convert_btn.grid(row=0, column=0, padx=10)
 
-        self.open_folder_btn = ft.Button(
-            "Open Output Folder",
-            icon="folder_open",
-            on_click=self.on_open_folder_clicked,
-            visible=False
+        self.open_folder_btn = ctk.CTkButton(
+            button_container,
+            text="Open Output Folder",
+            width=150,
+            height=35,
+            font=("Arial", 13),
+            command=self.on_open_folder_clicked,
+            fg_color="gray",
+            hover_color="darkgray"
         )
+        self.open_folder_btn.grid(row=0, column=1, padx=10)
+        self.open_folder_btn.grid_forget()  # Hide initially
 
-        self.reset_btn = ft.TextButton(
-            "Select Another File",
-            on_click=self.on_reset_clicked,
-            visible=False
+        self.reset_btn = ctk.CTkButton(
+            button_container,
+            text="Select Another File",
+            width=150,
+            height=35,
+            font=("Arial", 13),
+            command=self.on_reset_clicked,
+            fg_color="orange",
+            hover_color="darkorange"
         )
-
-        # Layout
-        self.page.add(
-            ft.Column([
-                # Header
-                ft.Container(
-                    content=ft.Column([
-                        title,
-                        subtitle,
-                    ], spacing=5),
-                    padding=ft.Padding.only(bottom=20)
-                ),
-
-                # Drop zone
-                self.drop_zone,
-
-                # Selected file
-                self.selected_file_text,
-
-                # Divider
-                ft.Divider(height=20, color=ft.Colors.GREY_300),
-
-                # Status area
-                ft.Container(
-                    content=ft.Column([
-                        self.status_text,
-                        self.progress_bar,
-                        self.output_path_text,
-                    ], spacing=10, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                    padding=ft.Padding.symmetric(vertical=10)
-                ),
-
-                # Action buttons
-                ft.Row([
-                    self.convert_btn,
-                    self.open_folder_btn,
-                    self.reset_btn,
-                ], alignment=ft.MainAxisAlignment.CENTER, spacing=15),
-            ],
-                spacing=15,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER
-            )
-        )
+        self.reset_btn.grid(row=0, column=2, padx=10)
+        self.reset_btn.grid_forget()  # Hide initially
 
     def create_drop_zone(self):
-        """
-        Create file selection area.
+        """Create file drop zone with drag-and-drop support"""
 
-        Returns:
-            Container with file selection UI
-        """
-        # File path input field
-        self.file_path_input = ft.TextField(
-            label="File path",
-            hint_text="Enter path to input.xlsx or click button below",
-            width=500,
-            on_change=self.on_file_path_changed,
-            border_color=ft.Colors.BLUE_400
-        )
-
-        return ft.Container(
-            content=ft.Column([
-                ft.Text(
-                    "📄",
-                    size=60
-                ),
-                ft.Text(
-                    "Select input Excel file",
-                    size=16,
-                    weight=ft.FontWeight.W_500
-                ),
-                self.file_path_input,
-                ft.Row([
-                    ft.Button(
-                        "Use files/input.xlsx",
-                        icon="folder",
-                        on_click=self.on_use_default_file
-                    ),
-                    ft.Button(
-                        "Choose File...",
-                        icon="file_open",
-                        on_click=self.on_browse_clicked
-                    ),
-                ], alignment=ft.MainAxisAlignment.CENTER, spacing=10),
-                ft.Text(
-                    "Required columns: Project Task, Date, Duration",
-                    size=10,
-                    color=ft.Colors.GREY_500,
-                    italic=True
-                ),
-            ],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=15
-            ),
-            border=ft.Border.all(2, ft.Colors.BLUE_200),
-            border_radius=10,
-            padding=30,
-            bgcolor=ft.Colors.BLUE_50,
+        # Main drop zone frame
+        self.drop_frame = ctk.CTkFrame(
+            self,
             width=550,
-            alignment=ft.Alignment.CENTER
+            height=280,
+            corner_radius=10,
+            fg_color="#e3f2fd",
+            border_width=2,
+            border_color="#90caf9"
         )
+        self.drop_frame.pack(pady=20, padx=20)
+        self.drop_frame.pack_propagate(False)  # Maintain fixed size
 
-    def on_file_path_changed(self, e):
+        # File icon
+        file_icon = ctk.CTkLabel(
+            self.drop_frame,
+            text="📄",
+            font=("Arial", 60)
+        )
+        file_icon.pack(pady=(30, 10))
+
+        # Instruction text
+        instruction_text = ctk.CTkLabel(
+            self.drop_frame,
+            text="Drop Excel file here",
+            font=("Arial", 16, "bold")
+        )
+        instruction_text.pack(pady=(0, 15))
+
+        # File path entry
+        self.file_path_entry = ctk.CTkEntry(
+            self.drop_frame,
+            width=480,
+            placeholder_text="Or enter file path manually",
+            border_width=2,
+            height=35
+        )
+        self.file_path_entry.pack(pady=(0, 15))
+        self.file_path_entry.bind("<KeyRelease>", self.on_file_path_changed)
+
+        # Button frame
+        button_frame = ctk.CTkFrame(self.drop_frame, fg_color="transparent")
+        button_frame.pack()
+
+        default_btn = ctk.CTkButton(
+            button_frame,
+            text="Use files/input.xlsx",
+            width=180,
+            command=self.on_use_default_file,
+            fg_color="#1976d2",
+            hover_color="#1565c0"
+        )
+        default_btn.grid(row=0, column=0, padx=5)
+
+        browse_btn = ctk.CTkButton(
+            button_frame,
+            text="Choose File...",
+            width=180,
+            command=self.on_browse_clicked,
+            fg_color="#1976d2",
+            hover_color="#1565c0"
+        )
+        browse_btn.grid(row=0, column=1, padx=5)
+
+        # Hint text
+        hint_label = ctk.CTkLabel(
+            self.drop_frame,
+            text="Required columns: Project Task, Date, Duration",
+            font=("Arial", 10),
+            text_color="gray"
+        )
+        hint_label.pack(pady=(15, 0))
+
+        # Register drag-and-drop events
+        self.drop_frame.drop_target_register(DND_FILES)
+        self.drop_frame.dnd_bind("<<Drop>>", self.on_file_dropped)
+        self.drop_frame.dnd_bind("<<DragEnter>>", self.on_drag_enter)
+        self.drop_frame.dnd_bind("<<DragLeave>>", self.on_drag_leave)
+
+    def on_file_dropped(self, event):
         """
-        Handle file path text field changes.
+        Handle file drop event.
 
         Args:
-            e: TextField change event
+            event: TkinterDnD event with file path data
         """
-        if self.file_path_input.value:
-            file_path = Path(self.file_path_input.value.strip())
+        # Parse file path from event
+        # Format: {C:/path/to/file.xlsx} for paths with spaces
+        file_path_str = event.data.strip('{}')
+
+        # Handle multiple files (take only first)
+        if ' ' in file_path_str and not Path(file_path_str).exists():
+            # Multiple files dropped, split and take first
+            file_path_str = file_path_str.split()[0].strip('{}')
+
+        file_path = Path(file_path_str)
+
+        # Update entry field
+        self.file_path_entry.delete(0, 'end')
+        self.file_path_entry.insert(0, str(file_path))
+
+        # Validate file
+        self.validate_and_set_file(file_path)
+
+        # Reset visual feedback
+        self.drop_frame.configure(border_color="#90caf9")
+
+    def on_drag_enter(self, event):
+        """
+        Handle drag enter event (visual feedback).
+
+        Args:
+            event: TkinterDnD event
+        """
+        # Change border color to green to indicate drop zone is active
+        self.drop_frame.configure(border_color="#4caf50")
+
+    def on_drag_leave(self, event):
+        """
+        Handle drag leave event (reset visual feedback).
+
+        Args:
+            event: TkinterDnD event
+        """
+        # Reset border color
+        self.drop_frame.configure(border_color="#90caf9")
+
+    def on_file_path_changed(self, event):
+        """
+        Handle file path entry changes.
+
+        Args:
+            event: Tkinter event
+        """
+        file_path_text = self.file_path_entry.get().strip()
+        if file_path_text:
+            file_path = Path(file_path_text)
             self.validate_and_set_file(file_path)
 
-    def on_use_default_file(self, e):
-        """
-        Use the default input file from files/input.xlsx.
-
-        Args:
-            e: Button click event
-        """
+    def on_use_default_file(self):
+        """Use the default input file from files/input.xlsx"""
         default_path = Path(__file__).parent.parent / "files" / "input.xlsx"
-        self.file_path_input.value = str(default_path)
-        self.page.update()
+        self.file_path_entry.delete(0, 'end')
+        self.file_path_entry.insert(0, str(default_path))
         self.validate_and_set_file(default_path)
 
-    def on_browse_clicked(self, e):
-        """
-        Open file dialog using tkinter (built-in Python).
-
-        Args:
-            e: Button click event
-        """
+    def on_browse_clicked(self):
+        """Open file dialog for file selection"""
         try:
-            import tkinter as tk
-            from tkinter import filedialog
-
-            # Create hidden root window
-            root = tk.Tk()
-            root.withdraw()
-            root.wm_attributes('-topmost', 1)
-
             # Open file dialog
             file_path = filedialog.askopenfilename(
                 title="Select input Excel file",
@@ -262,17 +300,16 @@ class ConverterApp:
                 initialdir=str(Path(__file__).parent.parent / "files")
             )
 
-            root.destroy()
-
             if file_path:
-                self.file_path_input.value = file_path
-                self.page.update()
+                self.file_path_entry.delete(0, 'end')
+                self.file_path_entry.insert(0, file_path)
                 self.validate_and_set_file(Path(file_path))
 
         except Exception as ex:
-            self.status_text.value = f"Error opening file dialog: {str(ex)}"
-            self.status_text.color = ft.Colors.RED_700
-            self.page.update()
+            self.status_label.configure(
+                text=f"Error opening file dialog: {str(ex)}",
+                text_color="red"
+            )
 
     def validate_and_set_file(self, file_path: Path):
         """
@@ -281,49 +318,59 @@ class ConverterApp:
         Args:
             file_path: Path to selected file
         """
+        # Check file extension first
+        if file_path.suffix.lower() not in ['.xlsx', '.xls']:
+            self.selected_file = None
+            self.selected_file_label.configure(text="")
+            self.status_label.configure(
+                text="❌ Error: File must be Excel format (.xlsx or .xls)",
+                text_color="red"
+            )
+            self.convert_btn.configure(state="disabled")
+            return
+
+        # Validate file content
         is_valid, error_msg = validate_input_data(file_path)
 
         if is_valid:
             self.selected_file = file_path
-            self.selected_file_text.value = f"Selected: {file_path.name}"
-            self.selected_file_text.visible = True
-            self.status_text.value = "File validated successfully! Ready to convert."
-            self.status_text.color = ft.Colors.GREEN_700
-            self.convert_btn.disabled = False
+            self.selected_file_label.configure(text=f"Selected: {file_path.name}")
+            self.status_label.configure(
+                text="File validated successfully! Ready to convert.",
+                text_color="green"
+            )
+            self.convert_btn.configure(state="normal")
         else:
             self.selected_file = None
-            self.selected_file_text.visible = False
-            self.status_text.value = f"❌ Invalid file: {error_msg}"
-            self.status_text.color = ft.Colors.RED_700
-            self.convert_btn.disabled = True
+            self.selected_file_label.configure(text="")
+            self.status_label.configure(
+                text=f"❌ Invalid file: {error_msg}",
+                text_color="red"
+            )
+            self.convert_btn.configure(state="disabled")
 
-        self.page.update()
-
-    def on_convert_clicked(self, e):
-        """
-        Handle convert button click.
-
-        Args:
-            e: Button click event
-        """
+    def on_convert_clicked(self):
+        """Handle convert button click"""
         # Disable UI during conversion
-        self.convert_btn.disabled = True
-        self.file_path_input.disabled = True
-        self.progress_bar.visible = True
-        self.status_text.value = "Converting... Please wait."
-        self.status_text.color = ft.Colors.BLUE_700
-        self.output_path_text.visible = False
-        self.open_folder_btn.visible = False
-        self.reset_btn.visible = False
-        self.page.update()
+        self.convert_btn.configure(state="disabled")
+        self.file_path_entry.configure(state="disabled")
+        self.progress_bar.pack(pady=10)
+        self.progress_bar.start()
+        self.status_label.configure(
+            text="Converting... Please wait.",
+            text_color="#1976d2"
+        )
+        self.output_path_label.pack_forget()
+        self.open_folder_btn.grid_forget()
+        self.reset_btn.grid_forget()
+        self.update()
 
-        # Run conversion synchronously (it's fast enough)
+        # Perform conversion
         self.perform_conversion()
 
     def perform_conversion(self):
         """
-        Perform conversion in background thread.
-        Updates UI with results when complete.
+        Perform conversion and update UI with results.
         """
         try:
             # Get script directory for output (project root)
@@ -341,40 +388,41 @@ class ConverterApp:
 
             # Update UI on success
             self.output_file = output_path
-            self.status_text.value = "✅ Conversion completed successfully!"
-            self.status_text.color = ft.Colors.GREEN_700
-            self.output_path_text.value = f"Output saved: {output_path.name}"
-            self.output_path_text.visible = True
-            self.open_folder_btn.visible = True
-            self.reset_btn.visible = True
-            self.progress_bar.visible = False
-            self.page.update()
+            self.status_label.configure(
+                text="✅ Conversion completed successfully!",
+                text_color="green"
+            )
+            self.output_path_label.configure(text=f"Output saved: {output_path.name}")
+            self.output_path_label.pack()
+            self.open_folder_btn.grid(row=0, column=1, padx=10)
+            self.reset_btn.grid(row=0, column=2, padx=10)
+            self.progress_bar.stop()
+            self.progress_bar.pack_forget()
 
         except ConversionError as ex:
             # Update UI on error
-            self.status_text.value = f"❌ Error: {str(ex)}"
-            self.status_text.color = ft.Colors.RED_700
-            self.convert_btn.disabled = False
-            self.file_path_input.disabled = False
-            self.progress_bar.visible = False
-            self.page.update()
+            self.status_label.configure(
+                text=f"❌ Error: {str(ex)}",
+                text_color="red"
+            )
+            self.convert_btn.configure(state="normal")
+            self.file_path_entry.configure(state="normal")
+            self.progress_bar.stop()
+            self.progress_bar.pack_forget()
 
         except Exception as ex:
             # Update UI on unexpected error
-            self.status_text.value = f"❌ Unexpected error: {str(ex)}"
-            self.status_text.color = ft.Colors.RED_700
-            self.convert_btn.disabled = False
-            self.file_path_input.disabled = False
-            self.progress_bar.visible = False
-            self.page.update()
+            self.status_label.configure(
+                text=f"❌ Unexpected error: {str(ex)}",
+                text_color="red"
+            )
+            self.convert_btn.configure(state="normal")
+            self.file_path_entry.configure(state="normal")
+            self.progress_bar.stop()
+            self.progress_bar.pack_forget()
 
-    def on_open_folder_clicked(self, e):
-        """
-        Open output folder in file explorer.
-
-        Args:
-            e: Button click event
-        """
+    def on_open_folder_clicked(self):
+        """Open output folder in file explorer"""
         if self.output_file:
             output_dir = self.output_file.parent
 
@@ -387,36 +435,32 @@ class ConverterApp:
                 else:  # Linux
                     subprocess.run(["xdg-open", str(output_dir)], check=False)
             except Exception as ex:
-                self.status_text.value = f"Could not open folder: {str(ex)}"
-                self.status_text.color = ft.Colors.ORANGE_700
-                self.page.update()
+                self.status_label.configure(
+                    text=f"Could not open folder: {str(ex)}",
+                    text_color="orange"
+                )
 
-    def on_reset_clicked(self, e):
-        """
-        Reset UI for new conversion.
-
-        Args:
-            e: Button click event
-        """
+    def on_reset_clicked(self):
+        """Reset UI for new conversion"""
         self.selected_file = None
         self.output_file = None
-        self.selected_file_text.visible = False
-        self.status_text.value = "Ready to convert"
-        self.status_text.color = None
-        self.output_path_text.visible = False
-        self.convert_btn.disabled = True
-        self.file_path_input.disabled = False
-        self.open_folder_btn.visible = False
-        self.reset_btn.visible = False
-        self.page.update()
+        self.selected_file_label.configure(text="")
+        self.status_label.configure(
+            text="Ready to convert",
+            text_color="black"
+        )
+        self.output_path_label.pack_forget()
+        self.convert_btn.configure(state="disabled")
+        self.file_path_entry.configure(state="normal")
+        self.file_path_entry.delete(0, 'end')
+        self.open_folder_btn.grid_forget()
+        self.reset_btn.grid_forget()
 
 
 def main():
     """Main entry point for the application"""
-    def startup(page: ft.Page):
-        ConverterApp(page)
-
-    ft.run(startup)
+    app = ConverterApp()
+    app.mainloop()
 
 
 if __name__ == "__main__":

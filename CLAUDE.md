@@ -24,7 +24,8 @@ pip install -r requirements.txt
 - Python 3.7+
 - pandas >= 2.0.0 (for Excel file reading/processing)
 - openpyxl >= 3.1.0 (for Excel file manipulation)
-- flet >= 0.24.0 (for graphical user interface)
+- customtkinter >= 5.2.0 (for modern graphical user interface)
+- tkinterdnd2 >= 0.3.0 (for native OS drag-and-drop support)
 
 ## Running the Application
 
@@ -34,7 +35,10 @@ python src/ui_app.py
 ```
 
 **Usage:**
-- User can drag-and-drop input Excel file or browse to select it
+- **Drag-and-drop** input Excel file directly from Windows Explorer onto the drop zone
+- Or **enter file path manually** in the text field
+- Or click **"Use files/input.xlsx"** to load the default sample file
+- Or click **"Choose File..."** to browse for a file using file dialog
 - Application validates the file and shows status in UI
 - Click "Convert File" to perform conversion
 - Output is saved in the project root directory with timestamp
@@ -47,20 +51,22 @@ python src/ui_app.py
 **Modular three-component design:**
 
 ### 1. **UI Layer** (`src/ui_app.py`)
-Flet-based graphical interface that handles:
-- File selection via drag-and-drop or file picker
+CustomTkinter + tkinterdnd2 based graphical interface that handles:
+- **Native OS file drag-and-drop** from Windows Explorer
+- File selection via manual input, default file button, or file picker
 - Input validation and user feedback
-- Conversion triggering (runs in background thread)
+- Conversion triggering (runs synchronously - fast enough for typical files)
 - Status display and error handling
 - Platform-specific folder opening
 
 **Key Classes:**
-- `ConverterApp`: Main application class managing UI state and events
+- `ConverterApp`: Main application class managing UI state and events (inherits from `TkinterDnD.Tk`)
 
-**Threading Model:**
-- UI runs on main thread
-- Conversion runs on background thread via `threading.Thread`
-- UI updates are synchronized using `page.update()`
+**Drag-and-Drop Implementation:**
+- Powered by tkinterdnd2 library for native OS file dropping
+- Visual feedback during drag: green border highlight on drag enter
+- Handles edge cases: multiple files (takes first), non-Excel files (shows error), paths with spaces/Unicode
+- Events: `<<Drop>>`, `<<DragEnter>>`, `<<DragLeave>>`
 
 ### 2. **Business Logic Layer** (`src/converter_core.py`)
 Core conversion functionality separated from UI:
@@ -87,7 +93,7 @@ Embedded Excel template (base64 encoded):
 **File Structure:**
 ```
 src/
-  ui_app.py           # Flet UI application (main entry point)
+  ui_app.py           # CustomTkinter + tkinterdnd2 UI application (main entry point)
   converter_core.py   # Business logic (testable, UI-independent)
   template_data.py    # Base64-encoded Excel template
   converter.py        # (Legacy CLI version, not used)
@@ -124,11 +130,18 @@ The converter handles:
 ## Code Modification Guidelines
 
 ### UI Changes (`src/ui_app.py`)
-- Always run long operations (file I/O, conversion) in background threads
-- Use `self.page.update()` after modifying UI state
+- Use `self.update()` after modifying UI state (CustomTkinter/tkinter method)
+- For visibility: use `.pack()` / `.grid()` to show, `.pack_forget()` / `.grid_forget()` to hide widgets
+- For state: use `.configure(state="disabled")` / `.configure(state="normal")`
+- For text/color: use `.configure(text="...", text_color="...")`
 - Disable interactive elements during processing to prevent race conditions
 - Provide clear user feedback for all states (loading, success, error)
 - Handle exceptions gracefully and display user-friendly error messages
+- **Drag-and-drop events**:
+  - `<<Drop>>` - file dropped on drop zone
+  - `<<DragEnter>>` - file dragged over drop zone (change border to green)
+  - `<<DragLeave>>` - file left drop zone (reset border color)
+  - Handle edge cases in `on_file_dropped()`: multiple files, spaces in paths, Unicode paths
 
 ### Business Logic Changes (`src/converter_core.py`)
 - Maintain the column mapping constants: `INPUT_COLUMNS`, `OUTPUT_COLUMNS`, `EFFORTS_SHEET_NAME`
@@ -186,10 +199,10 @@ print(f"Valid: {is_valid}, Error: {error}")
 2. Update `datetime.now().strftime()` format string
 
 **Add new UI element:**
-1. Create component in `setup_ui()` method
-2. Add to page layout in `ft.Column([...])`
-3. Wire up event handlers (e.g., `on_click`)
-4. Update state and call `self.page.update()`
+1. Create CustomTkinter component in `setup_ui()` method (e.g., `ctk.CTkButton`, `ctk.CTkLabel`, `ctk.CTkEntry`)
+2. Add to layout using `.pack()` or `.grid()` geometry manager
+3. Wire up event handlers using `command=` parameter or `.bind()` method
+4. Update state and call `self.update()` to refresh UI
 
 **Modify column mappings:**
 1. Update constants in `src/converter_core.py`: `INPUT_COLUMNS`, `OUTPUT_COLUMNS`
