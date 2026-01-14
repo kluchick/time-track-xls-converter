@@ -5,6 +5,12 @@ This file contains the base64-encoded output.xlsx template.
 
 import base64
 from io import BytesIO
+from pathlib import Path
+import shutil
+
+
+# Path to custom template file (in files/ directory)
+CUSTOM_TEMPLATE_PATH = Path(__file__).parent.parent / "files" / "custom_template.xlsx"
 
 
 TEMPLATE_BASE64 = """
@@ -1224,8 +1230,16 @@ AH8GAQBkb2NQcm9wcy9hcHAueG1sUEsFBgAAAAAPAA8A/wMAAEcJAQAAAA==
 def get_template_bytes() -> bytes:
     """
     Decode and return the template as bytes.
+    Uses custom template if available, otherwise falls back to embedded template.
     Returns: bytes object containing the Excel template
     """
+    if has_custom_template():
+        try:
+            return get_custom_template_bytes()
+        except Exception as e:
+            print(f"Warning: Failed to load custom template: {e}")
+            print("Falling back to embedded template")
+
     return base64.b64decode(TEMPLATE_BASE64)
 
 
@@ -1235,3 +1249,39 @@ def get_template_stream() -> BytesIO:
     Returns: BytesIO stream containing the Excel template
     """
     return BytesIO(get_template_bytes())
+
+
+def has_custom_template() -> bool:
+    """Check if custom template file exists and is readable"""
+    return CUSTOM_TEMPLATE_PATH.exists() and CUSTOM_TEMPLATE_PATH.is_file()
+
+
+def get_custom_template_bytes() -> bytes:
+    """Load custom template from disk"""
+    with open(CUSTOM_TEMPLATE_PATH, 'rb') as f:
+        return f.read()
+
+
+def save_custom_template(source_path: Path) -> None:
+    """
+    Save a custom template file to the standard location.
+
+    Args:
+        source_path: Path to the template file to save
+
+    Raises:
+        Exception: If file cannot be copied
+    """
+    shutil.copy2(source_path, CUSTOM_TEMPLATE_PATH)
+
+
+def get_template_info() -> str:
+    """
+    Get information about which template is currently in use.
+
+    Returns:
+        String describing the active template
+    """
+    if has_custom_template():
+        return "Custom template"
+    return "Built-in template"

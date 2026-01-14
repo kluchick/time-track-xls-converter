@@ -13,7 +13,13 @@ import sys
 from tkinter import filedialog
 
 from converter_core import convert_excel_file, validate_input_data, ConversionError
-from template_data import get_template_bytes
+from template_data import (
+    get_template_bytes,
+    save_custom_template,
+    get_template_info,
+    has_custom_template
+)
+import openpyxl
 
 
 class ConverterApp(TkinterDnD.Tk):
@@ -26,6 +32,7 @@ class ConverterApp(TkinterDnD.Tk):
         # Initialize state
         self.selected_file = None
         self.output_file = None
+        self.template_info = None  # Will hold template info label
 
         # Configure theme (must be before creating widgets)
         ctk.set_appearance_mode("light")
@@ -188,15 +195,15 @@ class ConverterApp(TkinterDnD.Tk):
         button_frame = ctk.CTkFrame(self.drop_frame, fg_color="transparent")
         button_frame.pack()
 
-        default_btn = ctk.CTkButton(
+        load_template_btn = ctk.CTkButton(
             button_frame,
-            text="Use files/input.xlsx",
+            text="Load Template",
             width=180,
-            command=self.on_use_default_file,
-            fg_color="#1976d2",
-            hover_color="#1565c0"
+            command=self.on_load_template_clicked,
+            fg_color="#7e57c2",  # Purple color to differentiate
+            hover_color="#673ab7"
         )
-        default_btn.grid(row=0, column=0, padx=5)
+        load_template_btn.grid(row=0, column=0, padx=5)
 
         browse_btn = ctk.CTkButton(
             button_frame,
@@ -216,6 +223,16 @@ class ConverterApp(TkinterDnD.Tk):
             text_color="gray"
         )
         hint_label.pack(pady=(15, 0))
+
+        # Template info display
+        self.template_info = ctk.CTkLabel(
+            self.drop_frame,
+            text="",
+            font=("Arial", 10),
+            text_color="purple"
+        )
+        self.template_info.pack(pady=(5, 0))
+        self.update_template_info()  # Initialize with current template
 
         # Register drag-and-drop events
         self.drop_frame.drop_target_register(DND_FILES)
@@ -283,12 +300,63 @@ class ConverterApp(TkinterDnD.Tk):
             file_path = Path(file_path_text)
             self.validate_and_set_file(file_path)
 
-    def on_use_default_file(self):
-        """Use the default input file from files/input.xlsx"""
-        default_path = Path(__file__).parent.parent / "files" / "input.xlsx"
-        self.file_path_entry.delete(0, 'end')
-        self.file_path_entry.insert(0, str(default_path))
-        self.validate_and_set_file(default_path)
+    def on_load_template_clicked(self):
+        """Open file dialog to load a custom template file"""
+        try:
+            # Open file dialog for template selection
+            file_path = filedialog.askopenfilename(
+                title="Select Excel template file",
+                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+                initialdir=str(Path(__file__).parent.parent / "files")
+            )
+
+            if file_path:
+                template_path = Path(file_path)
+
+                # Validate it's an Excel file
+                if template_path.suffix.lower() != '.xlsx':
+                    self.status_label.configure(
+                        text="❌ Error: Template must be .xlsx format",
+                        text_color="red"
+                    )
+                    return
+
+                # Try to validate it's a valid Excel file
+                try:
+                    wb = openpyxl.load_workbook(template_path)
+                    wb.close()
+                except Exception as ex:
+                    self.status_label.configure(
+                        text=f"❌ Invalid Excel file: {str(ex)}",
+                        text_color="red"
+                    )
+                    return
+
+                # Save the template
+                try:
+                    save_custom_template(template_path)
+                    self.status_label.configure(
+                        text=f"✅ Template loaded: {template_path.name}",
+                        text_color="green"
+                    )
+                    self.update_template_info()
+                except Exception as ex:
+                    self.status_label.configure(
+                        text=f"❌ Error saving template: {str(ex)}",
+                        text_color="red"
+                    )
+
+        except Exception as ex:
+            self.status_label.configure(
+                text=f"❌ Error opening file dialog: {str(ex)}",
+                text_color="red"
+            )
+
+    def update_template_info(self):
+        """Update the template info label to show which template is active"""
+        if self.template_info:
+            info_text = get_template_info()
+            self.template_info.configure(text=f"Template: {info_text}")
 
     def on_browse_clicked(self):
         """Open file dialog for file selection"""

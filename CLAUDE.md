@@ -37,12 +37,17 @@ python src/ui_app.py
 **Usage:**
 - **Drag-and-drop** input Excel file directly from Windows Explorer onto the drop zone
 - Or **enter file path manually** in the text field
-- Or click **"Use files/input.xlsx"** to load the default sample file
 - Or click **"Choose File..."** to browse for a file using file dialog
 - Application validates the file and shows status in UI
 - Click "Convert File" to perform conversion
 - Output is saved in the project root directory with timestamp
 - User can open the output folder directly from the UI
+
+**Loading Custom Templates:**
+- Click **"Load Template"** button to select a custom Excel template
+- Selected template is saved to `files/custom_template.xlsx`
+- Custom template persists across app sessions
+- To revert to built-in template, delete `files/custom_template.xlsx`
 
 **Output Format:** `output_YYYY-MM-DD_HH-MM-SS.xlsx` (e.g., `output_2026-01-13_14-30-45.xlsx`)
 
@@ -82,11 +87,19 @@ Core conversion functionality separated from UI:
 - Detailed error messages propagated to UI
 
 ### 3. **Template Layer** (`src/template_data.py`)
-Embedded Excel template (base64 encoded):
+Embedded Excel template (base64 encoded) with custom template support:
 
 **Functions:**
-- `get_template_bytes()`: Returns template as bytes
+- `get_template_bytes()`: Returns template as bytes (custom if available, else embedded)
 - `get_template_stream()`: Returns BytesIO stream for openpyxl
+- `has_custom_template()`: Check if custom template exists
+- `save_custom_template(source_path)`: Save custom template to disk
+- `get_template_info()`: Get description of active template
+
+**Custom Template:**
+- Location: `files/custom_template.xlsx`
+- Automatically used if present and valid
+- Falls back to embedded template if custom template fails to load
 
 **Template Size:** ~93KB (base64 encoded), 68,956 bytes decoded
 
@@ -126,6 +139,22 @@ The converter handles:
 - Non-numeric Duration values (skipped with warning)
 - Missing "Efforts" sheet (created if needed)
 - Empty input data (creates empty output file)
+
+## Custom Template Management
+
+**Loading Custom Template:**
+- Click "Load Template" button in UI
+- Select .xlsx file via file dialog
+- Template is validated (must be valid Excel file)
+- Saved to `files/custom_template.xlsx` (gitignored)
+
+**Template Priority:**
+1. Check for `files/custom_template.xlsx`
+2. If exists and valid, use it
+3. If missing or invalid, fall back to embedded template
+
+**Reverting to Built-in Template:**
+- Delete `files/custom_template.xlsx` manually from file system
 
 ## Code Modification Guidelines
 
