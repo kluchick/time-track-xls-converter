@@ -1,0 +1,8 @@
+files/
+venv/
+__pycache__/
+task/
+.claude/
+build/
+*.spec.bak
+version.rc
