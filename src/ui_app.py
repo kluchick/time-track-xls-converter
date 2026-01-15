@@ -129,6 +129,15 @@ class ConverterApp(TkinterDnD.Tk):
         self.output_path_label.pack()
         self.output_path_label.pack_forget()  # Hide initially
 
+        self.duplicates_label = ctk.CTkLabel(
+            self,
+            text="",
+            font=("Arial", 11),
+            text_color="orange"
+        )
+        self.duplicates_label.pack()
+        self.duplicates_label.pack_forget()  # Hide initially
+
         # Action buttons
         button_container = ctk.CTkFrame(self, fg_color="transparent")
         button_container.pack(pady=(10, 20))
@@ -454,6 +463,7 @@ class ConverterApp(TkinterDnD.Tk):
             text_color="#1976d2"
         )
         self.output_path_label.pack_forget()
+        self.duplicates_label.pack_forget()
         self.open_folder_btn.grid_forget()
         self.reset_btn.grid_forget()
         self.update()
@@ -478,7 +488,7 @@ class ConverterApp(TkinterDnD.Tk):
                 extend_description = None
 
             # Convert file
-            output_path = convert_excel_file(
+            output_path, duplicates_count = convert_excel_file(
                 input_path=self.selected_file,
                 template_bytes=template_bytes,
                 output_dir=output_dir,
@@ -493,6 +503,16 @@ class ConverterApp(TkinterDnD.Tk):
             )
             self.output_path_label.configure(text=f"Output saved: {output_path.name}")
             self.output_path_label.pack()
+            
+            # Show duplicates count if any were skipped
+            if duplicates_count > 0:
+                self.duplicates_label.configure(
+                    text=f"⚠️ Skipped {duplicates_count} duplicate row(s)"
+                )
+                self.duplicates_label.pack()
+            else:
+                self.duplicates_label.pack_forget()
+            
             self.open_folder_btn.grid(row=0, column=1, padx=10)
             self.reset_btn.grid(row=0, column=2, padx=10)
             self.progress_bar.stop()
@@ -551,6 +571,7 @@ class ConverterApp(TkinterDnD.Tk):
             text_color="black"
         )
         self.output_path_label.pack_forget()
+        self.duplicates_label.pack_forget()
         self.convert_btn.configure(state="disabled")
         self.file_path_entry.configure(state="normal")
         self.file_path_entry.delete(0, 'end')

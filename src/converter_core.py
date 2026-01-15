@@ -189,7 +189,7 @@ def extend_time_entries(processed_df: pd.DataFrame, extend_description: str) -> 
     return extended_df
 
 
-def write_to_output_file(template_bytes: bytes, data_df: pd.DataFrame, output_path: Path):
+def write_to_output_file(template_bytes: bytes, data_df: pd.DataFrame, output_path: Path) -> int:
     """
     Load template from bytes, write data to Efforts sheet, save to output_path.
 
@@ -197,6 +197,9 @@ def write_to_output_file(template_bytes: bytes, data_df: pd.DataFrame, output_pa
         template_bytes: Bytes containing the Excel template
         data_df: DataFrame with columns: Effort, Description, Date
         output_path: Path where to save the output file
+
+    Returns:
+        Number of duplicate rows that were skipped
 
     Raises:
         ConversionError: If writing fails
@@ -227,6 +230,72 @@ def write_to_output_file(template_bytes: bytes, data_df: pd.DataFrame, output_pa
             if has_data:
                 last_data_row = row
 
+        # Read existing rows to detect duplicates
+        existing_rows = set()
+        for row in range(data_start_row, last_data_row + 1):
+            effort_val = ws.cell(row, 2).value  # Column B (Effort)
+            desc_val = ws.cell(row, 3).value   # Column C (Description)
+            date_val = ws.cell(row, 4).value   # Column D (Date)
+            
+            # Normalize values for comparison
+            if effort_val is not None:
+                try:
+                    effort_val = float(effort_val)
+                except (ValueError, TypeError):
+                    effort_val = None
+            if desc_val is not None:
+                desc_val = str(desc_val).strip()
+            if date_val is not None:
+                # Normalize date to date-only (remove time component)
+                # openpyxl may return datetime, date, or string
+                if hasattr(date_val, 'date'):  # datetime or pd.Timestamp
+                    date_val = date_val.date()
+                elif hasattr(date_val, 'year'):  # date object
+                    date_val = date_val
+                else:
+                    try:
+                        date_val = pd.to_datetime(date_val).date()
+                    except (ValueError, TypeError):
+                        date_val = None
+            
+            # Add to set if all values are present
+            if effort_val is not None and desc_val and date_val is not None:
+                existing_rows.add((effort_val, desc_val, date_val))
+
+        # Filter out duplicates from new data
+        duplicates_count = 0
+        unique_rows = []
+        for _, row_data in data_df.iterrows():
+            effort = float(row_data["Effort"])
+            desc = str(row_data["Description"]).strip()
+            date = row_data["Date"]
+            
+            # Normalize date for comparison
+            if isinstance(date, pd.Timestamp):
+                date_normalized = date.date()
+            elif isinstance(date, datetime):
+                date_normalized = date.date()
+            else:
+                try:
+                    date_normalized = pd.to_datetime(date).date()
+                except (ValueError, TypeError):
+                    date_normalized = None
+            
+            # Check if this row already exists
+            row_tuple = (effort, desc, date_normalized) if date_normalized else None
+            if row_tuple and row_tuple in existing_rows:
+                duplicates_count += 1
+            else:
+                unique_rows.append(row_data)
+                if row_tuple:
+                    existing_rows.add(row_tuple)  # Add to set to prevent duplicates within new data too
+
+        # Create DataFrame with unique rows only
+        if unique_rows:
+            data_df = pd.DataFrame(unique_rows).reset_index(drop=True)
+        else:
+            data_df = pd.DataFrame(columns=["Effort", "Description", "Date"])
+
         # Start writing new data after the last existing data row
         write_start_row = last_data_row + 1
 
@@ -253,17 +322,27 @@ def write_to_output_file(template_bytes: bytes, data_df: pd.DataFrame, output_pa
 
         # Save workbook
         wb.save(output_path)
-        if copy_column_a:
-            print(f"Appended {len(data_df)} rows to '{EFFORTS_SHEET_NAME}' sheet starting from row {write_start_row} (columns A, B, C, D)")
-            print(f"  - Copied column A value '{column_a_value}' to all imported rows")
+        if len(data_df) == 0:
+            if duplicates_count > 0:
+                print(f"No new rows added - all {duplicates_count} row(s) were duplicates")
+            else:
+                print(f"No rows to write")
         else:
-            print(f"Appended {len(data_df)} rows to '{EFFORTS_SHEET_NAME}' sheet starting from row {write_start_row} (columns B, C, D)")
+            if copy_column_a:
+                print(f"Appended {len(data_df)} rows to '{EFFORTS_SHEET_NAME}' sheet starting from row {write_start_row} (columns A, B, C, D)")
+                print(f"  - Copied column A value '{column_a_value}' to all imported rows")
+            else:
+                print(f"Appended {len(data_df)} rows to '{EFFORTS_SHEET_NAME}' sheet starting from row {write_start_row} (columns B, C, D)")
+            if duplicates_count > 0:
+                print(f"  - Skipped {duplicates_count} duplicate row(s)")
+
+        return duplicates_count
 
     except Exception as e:
         raise ConversionError(f"Error writing output file: {str(e)}")
 
 
-def convert_excel_file(input_path: Path, template_bytes: bytes, output_dir: Path, extend_description: str = None) -> Path:
+def convert_excel_file(input_path: Path, template_bytes: bytes, output_dir: Path, extend_description: str = None) -> Tuple[Path, int]:
     """
     Main conversion function. Converts input Excel to output with timestamp.
 
@@ -275,7 +354,7 @@ def convert_excel_file(input_path: Path, template_bytes: bytes, output_dir: Path
                            If provided and not empty, adds filler rows for days with < 8 hours.
 
     Returns:
-        Path to the created output file
+        Tuple of (Path to the created output file, number of duplicate rows skipped)
 
     Raises:
         ConversionError: If conversion fails
@@ -298,12 +377,12 @@ def convert_excel_file(input_path: Path, template_bytes: bytes, output_dir: Path
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Write to output file
-        write_to_output_file(template_bytes, processed_df, output_path)
+        duplicates_count = write_to_output_file(template_bytes, processed_df, output_path)
 
         print(f"Conversion completed successfully!")
         print(f"Output file: {output_path}")
 
-        return output_path
+        return output_path, duplicates_count
 
     except ConversionError:
         raise
