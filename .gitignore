@@ -6,3 +6,4 @@ task/
 build/
 dist/
 *.spec.bak
+version.rc

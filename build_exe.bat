@@ -1,6 +1,7 @@
 @echo off
 REM Build script for creating .exe file from Python application
 REM Usage: build_exe.bat
+REM Version is set in converter.spec file
 
 echo Building Excel Time Tracker Converter executable...
 
@@ -18,19 +19,6 @@ REM Install/upgrade dependencies
 echo Installing dependencies...
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-
-REM Clean previous builds
-if exist "dist" (
-    echo Cleaning previous builds...
-    rmdir /s /q dist
-)
-if exist "build" (
-    rmdir /s /q build
-)
-
-REM Build executable using spec file
-echo Building executable...
-pyinstaller converter.spec
 
 if %ERRORLEVEL% EQU 0 (
     echo.

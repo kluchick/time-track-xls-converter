@@ -5,6 +5,9 @@ PyInstaller spec file for Excel Time Tracker Converter
 
 block_cipher = None
 
+# Set version here (will be added to executable filename)
+VERSION = "1.0.1"
+
 a = Analysis(
     ['src/ui_app.py'],
     pathex=['src'],
@@ -35,10 +38,6 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    [],
     name='ExcelTimeTrackerConverter',
     debug=False,
     bootloader_ignore_signals=False,
