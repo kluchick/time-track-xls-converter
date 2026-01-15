@@ -1,39 +1,34 @@
 """
 Embedded Excel template for time tracker converter.
-This file contains the base64-encoded output.xlsx template.
+
+Contains the base64-encoded output.xlsx template and functions
+for template loading with custom template support.
 """
 
 import base64
-from io import BytesIO
-from pathlib import Path
 import shutil
 import sys
+from io import BytesIO
+from pathlib import Path
+
+CUSTOM_TEMPLATE_FILENAME = "custom_template.xlsx"
 
 
 def get_app_base_dir() -> Path:
     """
     Get the base directory for the application.
-    
-    - If running as .exe (PyInstaller): returns directory containing the executable
-    - If running as Python script: returns project root directory (parent of src/)
-    
-    Returns:
-        Path to the base directory where files should be stored
+
+    Returns the .exe directory when frozen, or project root when running as script.
     """
-    if getattr(sys, 'frozen', False) or hasattr(sys, '_MEIPASS'):
-        # Running as compiled .exe (PyInstaller)
-        # sys.executable points to the .exe file
+    is_frozen = getattr(sys, "frozen", False) or hasattr(sys, "_MEIPASS")
+    if is_frozen:
         return Path(sys.executable).parent
-    else:
-        # Running as Python script
-        # Return project root (parent of src/)
-        return Path(__file__).parent.parent
+    return Path(__file__).parent.parent
 
 
-# Path to custom template file (in base directory)
 def get_custom_template_path() -> Path:
-    """Get path to custom template file in base directory"""
-    return get_app_base_dir() / "custom_template.xlsx"
+    """Get the path to the custom template file."""
+    return get_app_base_dir() / CUSTOM_TEMPLATE_FILENAME
 
 
 TEMPLATE_BASE64 = """
@@ -1252,13 +1247,13 @@ AH8GAQBkb2NQcm9wcy9hcHAueG1sUEsFBgAAAAAPAA8A/wMAAEcJAQAAAA==
 
 def get_template_bytes() -> bytes:
     """
-    Decode and return the template as bytes.
-    Uses custom template if available, otherwise falls back to embedded template.
-    Returns: bytes object containing the Excel template
+    Get template as bytes, using custom template if available.
+
+    Falls back to embedded template if custom template fails to load.
     """
     if has_custom_template():
         try:
-            return get_custom_template_bytes()
+            return _read_custom_template()
         except Exception as e:
             print(f"Warning: Failed to load custom template: {e}")
             print("Falling back to embedded template")
@@ -1267,47 +1262,26 @@ def get_template_bytes() -> bytes:
 
 
 def get_template_stream() -> BytesIO:
-    """
-    Get template as BytesIO stream for openpyxl.
-    Returns: BytesIO stream containing the Excel template
-    """
+    """Get template as BytesIO stream for openpyxl."""
     return BytesIO(get_template_bytes())
 
 
 def has_custom_template() -> bool:
-    """Check if custom template file exists and is readable"""
+    """Check if a custom template file exists."""
     custom_path = get_custom_template_path()
     return custom_path.exists() and custom_path.is_file()
 
 
-def get_custom_template_bytes() -> bytes:
-    """Load custom template from disk"""
-    custom_path = get_custom_template_path()
-    with open(custom_path, 'rb') as f:
-        return f.read()
+def _read_custom_template() -> bytes:
+    """Read the custom template file from disk."""
+    return get_custom_template_path().read_bytes()
 
 
 def save_custom_template(source_path: Path) -> None:
-    """
-    Save a custom template file to the standard location.
-
-    Args:
-        source_path: Path to the template file to save
-
-    Raises:
-        Exception: If file cannot be copied
-    """
-    custom_path = get_custom_template_path()
-    shutil.copy2(source_path, custom_path)
+    """Copy a template file to the custom template location."""
+    shutil.copy2(source_path, get_custom_template_path())
 
 
 def get_template_info() -> str:
-    """
-    Get information about which template is currently in use.
-
-    Returns:
-        String describing the active template
-    """
-    if has_custom_template():
-        return "Custom template"
-    return "Built-in template"
+    """Get a description of which template is currently active."""
+    return "Custom template" if has_custom_template() else "Built-in template"
