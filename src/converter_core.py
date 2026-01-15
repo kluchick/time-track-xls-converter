@@ -60,12 +60,14 @@ def validate_input_data(file_path: Path) -> Tuple[bool, str]:
         return False, f"Error reading file: {str(e)}"
 
 
-def read_and_process_input(file_path: Path) -> pd.DataFrame:
+def read_and_process_input(file_path: Path, extend_description: str = None) -> pd.DataFrame:
     """
     Read input Excel and process data.
 
     Args:
         file_path: Path to input Excel file
+        extend_description: Optional description text for extended time entries.
+                           If provided and not empty, adds filler rows for days with < 8 hours.
 
     Returns:
         Processed DataFrame with columns: Effort, Description, Date
@@ -110,6 +112,13 @@ def read_and_process_input(file_path: Path) -> pd.DataFrame:
         # Keep Date as-is
         processed["Date"] = df["Date"]
 
+        # Normalize dates for grouping (remove time component)
+        processed["Date"] = pd.to_datetime(processed["Date"]).dt.normalize()
+
+        # Extend time entries if description is provided
+        if extend_description and extend_description.strip():
+            processed = extend_time_entries(processed, extend_description.strip())
+
         print(f"Processed {len(processed)} rows from input file")
         return processed
 
@@ -117,6 +126,67 @@ def read_and_process_input(file_path: Path) -> pd.DataFrame:
         raise
     except Exception as e:
         raise ConversionError(f"Error processing input file: {str(e)}")
+
+
+def extend_time_entries(processed_df: pd.DataFrame, extend_description: str) -> pd.DataFrame:
+    """
+    Extend time entries to ensure each day has at least 8 hours.
+
+    Args:
+        processed_df: DataFrame with columns: Effort, Description, Date
+        extend_description: Description text for filler rows
+
+    Returns:
+        Extended DataFrame with filler rows added for days with < 8 hours
+    """
+    # Sort by date first to maintain chronological order
+    processed_df = processed_df.sort_values("Date").reset_index(drop=True)
+
+    # Group by date and calculate total hours per day
+    daily_totals = processed_df.groupby("Date")["Effort"].sum()
+
+    # Find days that need extension (< 8 hours)
+    days_to_extend = daily_totals[daily_totals < 8.0]
+
+    if len(days_to_extend) == 0:
+        return processed_df
+
+    # Build extended DataFrame by inserting filler rows after each day's entries
+    extended_rows = []
+    current_date = None
+    
+    for idx, row in processed_df.iterrows():
+        row_date = row["Date"]
+        
+        # If we've moved to a new day and the previous day needed extension
+        if current_date is not None and current_date != row_date and current_date in days_to_extend.index:
+            # Add filler row for the previous day
+            day_total = daily_totals[current_date]
+            missing_hours = 8.0 - day_total
+            extended_rows.append({
+                "Effort": missing_hours,
+                "Description": extend_description,
+                "Date": current_date
+            })
+        
+        extended_rows.append(row.to_dict())
+        current_date = row_date
+    
+    # Handle the last day if it needs extension
+    if current_date is not None and current_date in days_to_extend.index:
+        day_total = daily_totals[current_date]
+        missing_hours = 8.0 - day_total
+        extended_rows.append({
+            "Effort": missing_hours,
+            "Description": extend_description,
+            "Date": current_date
+        })
+
+    # Create DataFrame from extended rows
+    extended_df = pd.DataFrame(extended_rows)
+
+    print(f"Extended {len(days_to_extend)} days to 8 hours with description: '{extend_description}'")
+    return extended_df
 
 
 def write_to_output_file(template_bytes: bytes, data_df: pd.DataFrame, output_path: Path):
@@ -185,7 +255,7 @@ def write_to_output_file(template_bytes: bytes, data_df: pd.DataFrame, output_pa
         raise ConversionError(f"Error writing output file: {str(e)}")
 
 
-def convert_excel_file(input_path: Path, template_bytes: bytes, output_dir: Path) -> Path:
+def convert_excel_file(input_path: Path, template_bytes: bytes, output_dir: Path, extend_description: str = None) -> Path:
     """
     Main conversion function. Converts input Excel to output with timestamp.
 
@@ -193,6 +263,8 @@ def convert_excel_file(input_path: Path, template_bytes: bytes, output_dir: Path
         input_path: Path to input Excel file
         template_bytes: Bytes containing the Excel template
         output_dir: Directory where to save the output file
+        extend_description: Optional description text for extended time entries.
+                           If provided and not empty, adds filler rows for days with < 8 hours.
 
     Returns:
         Path to the created output file
@@ -207,7 +279,7 @@ def convert_excel_file(input_path: Path, template_bytes: bytes, output_dir: Path
             raise ConversionError(error_msg)
 
         # Read and process data
-        processed_df = read_and_process_input(input_path)
+        processed_df = read_and_process_input(input_path, extend_description=extend_description)
 
         # Generate timestamped output filename
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

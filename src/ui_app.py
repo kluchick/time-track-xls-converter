@@ -41,7 +41,7 @@ class ConverterApp(TkinterDnD.Tk):
 
         # Setup window
         self.title("Excel Time Tracker Converter")
-        self.geometry("650x700")
+        self.geometry("650x750")
         self.resizable(False, False)
         self.configure(bg="#f0f0f0")
 
@@ -81,7 +81,28 @@ class ConverterApp(TkinterDnD.Tk):
             font=("Arial", 12, "italic"),
             text_color="gray"
         )
-        self.selected_file_label.pack(pady=(10, 0))
+        self.selected_file_label.pack(pady=(5, 0))
+
+        # Extend time entries field
+        extend_frame = ctk.CTkFrame(self, fg_color="transparent")
+        extend_frame.pack(pady=(5, 0), padx=20, fill="x")
+
+        extend_label = ctk.CTkLabel(
+            extend_frame,
+            text="Extend time entries (optional):",
+            font=("Arial", 12),
+            text_color="gray"
+        )
+        extend_label.pack(anchor="w", pady=(0, 5))
+
+        self.extend_time_entry = ctk.CTkEntry(
+            extend_frame,
+            width=550,
+            placeholder_text="Enter description for extended time entries",
+            border_width=2,
+            height=35
+        )
+        self.extend_time_entry.pack(fill="x")
 
         # Separator
         separator = ctk.CTkFrame(self, height=2, fg_color="lightgray")
@@ -110,7 +131,7 @@ class ConverterApp(TkinterDnD.Tk):
 
         # Action buttons
         button_container = ctk.CTkFrame(self, fg_color="transparent")
-        button_container.pack(pady=20)
+        button_container.pack(pady=(10, 20))
 
         self.convert_btn = ctk.CTkButton(
             button_container,
@@ -156,7 +177,7 @@ class ConverterApp(TkinterDnD.Tk):
         self.drop_frame = ctk.CTkFrame(
             self,
             width=550,
-            height=280,
+            height=300,
             corner_radius=10,
             fg_color="#e3f2fd",
             border_width=2,
@@ -198,7 +219,7 @@ class ConverterApp(TkinterDnD.Tk):
 
         load_template_btn = ctk.CTkButton(
             button_frame,
-            text="Load Template",
+            text="Load ETS template",
             width=180,
             command=self.on_load_template_clicked,
             fg_color="#7e57c2",  # Purple color to differentiate
@@ -230,9 +251,11 @@ class ConverterApp(TkinterDnD.Tk):
             self.drop_frame,
             text="",
             font=("Arial", 10),
-            text_color="purple"
+            text_color="purple",
+            anchor="w",
+            width=480
         )
-        self.template_info.pack(pady=(5, 0))
+        self.template_info.pack(pady=(5, 10))
         self.update_template_info()  # Initialize with current template
 
         # Register drag-and-drop events
@@ -423,6 +446,7 @@ class ConverterApp(TkinterDnD.Tk):
         # Disable UI during conversion
         self.convert_btn.configure(state="disabled")
         self.file_path_entry.configure(state="disabled")
+        self.extend_time_entry.configure(state="disabled")
         self.progress_bar.pack(pady=10)
         self.progress_bar.start()
         self.status_label.configure(
@@ -448,11 +472,17 @@ class ConverterApp(TkinterDnD.Tk):
             # Get template bytes
             template_bytes = get_template_bytes()
 
+            # Get extend description from UI field
+            extend_description = self.extend_time_entry.get().strip()
+            if not extend_description:
+                extend_description = None
+
             # Convert file
             output_path = convert_excel_file(
                 input_path=self.selected_file,
                 template_bytes=template_bytes,
-                output_dir=output_dir
+                output_dir=output_dir,
+                extend_description=extend_description
             )
 
             # Update UI on success
@@ -476,6 +506,7 @@ class ConverterApp(TkinterDnD.Tk):
             )
             self.convert_btn.configure(state="normal")
             self.file_path_entry.configure(state="normal")
+            self.extend_time_entry.configure(state="normal")
             self.progress_bar.stop()
             self.progress_bar.pack_forget()
 
@@ -487,6 +518,7 @@ class ConverterApp(TkinterDnD.Tk):
             )
             self.convert_btn.configure(state="normal")
             self.file_path_entry.configure(state="normal")
+            self.extend_time_entry.configure(state="normal")
             self.progress_bar.stop()
             self.progress_bar.pack_forget()
 
@@ -522,6 +554,8 @@ class ConverterApp(TkinterDnD.Tk):
         self.convert_btn.configure(state="disabled")
         self.file_path_entry.configure(state="normal")
         self.file_path_entry.delete(0, 'end')
+        self.extend_time_entry.configure(state="normal")
+        self.extend_time_entry.delete(0, 'end')
         self.open_folder_btn.grid_forget()
         self.reset_btn.grid_forget()
 
