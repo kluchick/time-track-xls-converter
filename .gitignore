@@ -4,6 +4,5 @@ __pycache__/
 task/
 .claude/
 build/
-dist/
 *.spec.bak
 version.rc

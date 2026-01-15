@@ -20,10 +20,21 @@ echo Installing dependencies...
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo Failed to install dependencies!
+    exit /b 1
+)
+
+REM Build executable using PyInstaller
+echo.
+echo Building executable with PyInstaller...
+pyinstaller converter.spec
+
 if %ERRORLEVEL% EQU 0 (
     echo.
     echo Build completed successfully!
-    echo Executable location: dist\ExcelTimeTrackerConverter.exe
+    echo Executable location: dist\ExcelTimeTrackerConverter-*.exe
 ) else (
     echo.
     echo Build failed!

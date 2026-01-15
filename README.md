@@ -1,75 +1,83 @@
 # Excel Time Tracker Converter
 
-A user-friendly desktop application for converting time tracking data from Excel files. Features a graphical interface with drag-and-drop support for easy file conversion.
-
-## Features
-
-- **Graphical User Interface** - Modern, intuitive UI built with Flet
-- **Drag-and-Drop Support** - Simply drag your input Excel file to convert
-- **Automatic Conversion** - Converts Duration from minutes to hours
-- **Timestamped Output** - Creates output files with date and time (format: `output_YYYY-MM-DD_HH-MM-SS.xlsx`)
-- **Smart Validation** - Validates input files before conversion
-- **Output Location** - Saves converted files in the same directory as the application
-- **Template Embedded** - No external template files needed
-- **Cross-Platform** - Works on Windows, macOS, and Linux
-
-## Requirements
-
-- Python 3.7+
-- pandas >= 2.0.0
-- openpyxl >= 3.1.0
-- flet >= 0.24.0
+Desktop application for converting time tracking data from Excel files. Simple graphical interface with drag-and-drop file support.
 
 ## Installation
 
-1. Clone or download this repository
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+The **dist** folder contains the Windows executable file (`ExcelTimeTrackerConverter-x.x.exe`).
 
-## Usage
+1. Copy the `ExcelTimeTrackerConverter-x.x.exe` file from the **dist** folder to any convenient location on your computer
+2. Double-click the file to launch it
 
-### Running the Application
+No additional installation is required - all necessary components are already included in the executable file.
 
-Simply run the UI application:
+### Running from Source (Python)
+
+If you prefer to run the application from Python source code:
+
+**Requirements:**
+- Python 3.7 or higher
+
+**Installation:**
+
+1. Create a virtual environment (recommended):
+   ```bash
+   python -m venv venv
+   ```
+
+2. Activate the virtual environment:
+   - On Windows: `venv\Scripts\activate`
+   - On Linux/macOS: `source venv/bin/activate`
+
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+**Running the Application:**
+
 ```bash
 python src/ui_app.py
 ```
 
-### Using the Interface
+The application will work the same way as the executable version.
+
+## Usage
+
+### Launching the Application
+
+Double-click the `ExcelTimeTrackerConverter-1.0.exe` file
+
+### Using the Application
 
 1. **Select File**:
-   - Drag and drop your input Excel file onto the window, OR
-   - Click "Browse Files" to select your file
+   - Drag and drop your Excel file directly into the application window, OR
+   - Click "Choose File..." to select a file via dialog, OR
+   - Enter the file path manually in the text field
+
 2. **Convert**: Click the "Convert File" button
-3. **View Output**: The converted file will be saved in the application directory with a timestamp
+
+3. **Result**: The converted file will be saved in the same folder where the application is located, with a timestamp in the filename
+
 4. **Open Folder**: Click "Open Output Folder" to view the converted file
 
-### Output Location
+### Output File Format
 
-The converted file will be created in the **same directory where you run the application** (project root), not in the `files/` folder.
+Filename: `ets_time_records_YYYY-MM-DD_HH-MM-SS.xlsx` (e.g., `ets_time_records_2026-01-13_14-30-45.xlsx`)
 
 ## Input File Format
 
-The `input.xlsx` file must contain the following columns:
+Your Excel file must contain the following columns:
 - **Project Task** - Task description
-- **Date** - Date of the time entry
-- **Duration** - Time spent in minutes (numeric)
+- **Date** - Time entry date
+- **Duration** - Time in minutes (numeric value)
 
 ## Output File Format
 
-The script writes to the "Efforts" sheet in the output file with:
-- **Effort** - Time spent in hours (Duration / 60)
-- **Description** - Project Task value
-- **Date** - Date value (same format as input)
-
-## Behavior
-
-- If the "Efforts" sheet doesn't exist, it will be created
-- Existing data rows in the Efforts sheet are cleared (header row is preserved)
-- Rows with invalid Duration values are skipped with a warning
-- Empty input data creates an empty output file
+The application writes data to the "Efforts" sheet in the output file:
+- **Effort** - Time in hours (Duration / 60)
+- **Description** - Value from the Project Task column
+- **Date** - Date value (same format as in the input file)
 
 ## Error Handling
 
@@ -79,34 +87,21 @@ The application validates:
 - Data types (Duration must be numeric)
 - File format (must be .xlsx or .xls)
 
-Error messages are displayed in the UI with clear explanations of what went wrong.
+When errors occur, a clear message with an explanation of the problem is displayed in the interface.
 
-## Architecture
+## Loading Custom Template
 
-The application is modular with three main components:
+You can use your own Excel template:
 
-- **`src/ui_app.py`** - Flet-based graphical user interface
-- **`src/converter_core.py`** - Core conversion business logic
-- **`src/template_data.py`** - Embedded Excel template (base64 encoded)
+1. Click the **"Load Template"** button
+2. Select a .xlsx file via the file selection dialog
+3. The selected template will be saved and used for all subsequent conversions
 
-This separation allows for easy testing and potential CLI/API implementations in the future.
+To revert to the built-in template, delete the `custom_template.xlsx` file from the application folder (if it was created).
 
-## Development
+## Features
 
-To run in development mode:
-
-```bash
-# Activate virtual environment (if using venv)
-source venv/bin/activate  # On Linux/macOS
-venv\Scripts\activate     # On Windows
-
-# Run the application
-python src/ui_app.py
-```
-
-## Notes
-
-- The Excel template is embedded in the application, so no external template file is needed
-- The original CLI version (`converter.py`) has been replaced with the UI version
-- Output files include both date and time in the filename for better uniqueness
-- The application runs in a single window and is fully self-contained
+- If the "Efforts" sheet is missing in the output file, it will be created automatically
+- Rows with invalid Duration values are skipped with a warning
+- Empty input data creates an empty output file
+- The Excel template is embedded in the application, no external template files are required
