@@ -216,19 +216,27 @@ def write_to_output_file(template_bytes: bytes, data_df: pd.DataFrame, output_pa
         # Data starts from row 3 (row 1 is template header, row 2 is column headers)
         data_start_row = 3
 
+        # Find the last row with data in columns B, C, or D
+        last_data_row = data_start_row - 1  # Start from row 2 (before data starts)
+        for row in range(data_start_row, ws.max_row + 1):
+            # Check if any of columns B, C, D have data
+            has_data = any(
+                ws.cell(row, col).value is not None and str(ws.cell(row, col).value).strip() != ""
+                for col in range(2, 5)  # Columns B, C, D
+            )
+            if has_data:
+                last_data_row = row
+
+        # Start writing new data after the last existing data row
+        write_start_row = last_data_row + 1
+
         # Check if column A in first data row has a value to copy to all imported rows
         column_a_value = ws.cell(data_start_row, 1).value  # A3
         copy_column_a = column_a_value is not None and str(column_a_value).strip() != ""
 
-        # Clear existing data in columns B, C, D only (preserve column A)
-        if ws.max_row >= data_start_row:
-            for row in range(data_start_row, ws.max_row + 1):
-                for col in range(2, 5):  # Columns B, C, D (indices 2, 3, 4)
-                    ws.cell(row, col).value = None
-
-        # Write data starting from row 3, columns B, C, D
+        # Write data starting after last existing row, columns B, C, D
         # Map: Effort -> B (index 2), Description -> C (index 3), Date -> D (index 4)
-        for row_idx, (_, row_data) in enumerate(data_df.iterrows(), start=data_start_row):
+        for row_idx, (_, row_data) in enumerate(data_df.iterrows(), start=write_start_row):
             # If column A has a value in first data row, copy it to all imported rows
             if copy_column_a:
                 ws.cell(row_idx, 1).value = column_a_value  # Column A
@@ -246,10 +254,10 @@ def write_to_output_file(template_bytes: bytes, data_df: pd.DataFrame, output_pa
         # Save workbook
         wb.save(output_path)
         if copy_column_a:
-            print(f"Written {len(data_df)} rows to '{EFFORTS_SHEET_NAME}' sheet (columns A, B, C, D)")
+            print(f"Appended {len(data_df)} rows to '{EFFORTS_SHEET_NAME}' sheet starting from row {write_start_row} (columns A, B, C, D)")
             print(f"  - Copied column A value '{column_a_value}' to all imported rows")
         else:
-            print(f"Written {len(data_df)} rows to '{EFFORTS_SHEET_NAME}' sheet (columns B, C, D)")
+            print(f"Appended {len(data_df)} rows to '{EFFORTS_SHEET_NAME}' sheet starting from row {write_start_row} (columns B, C, D)")
 
     except Exception as e:
         raise ConversionError(f"Error writing output file: {str(e)}")
