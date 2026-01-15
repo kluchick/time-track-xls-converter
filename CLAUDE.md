@@ -49,7 +49,7 @@ python src/ui_app.py
 - Custom template persists across app sessions
 - To revert to built-in template, delete `files/custom_template.xlsx`
 
-**Output Format:** `output_YYYY-MM-DD_HH-MM-SS.xlsx` (e.g., `output_2026-01-13_14-30-45.xlsx`)
+**Output Format:** `ets_time_records_YYYY-MM-DD_HH-MM-SS.xlsx` (e.g., `ets_time_records_2026-01-13_14-30-45.xlsx`)
 
 ## Architecture
 

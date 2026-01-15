@@ -47,7 +47,7 @@ def create_dated_output_file():
         raise FileNotFoundError(f"Output template not found: {OUTPUT_TEMPLATE}")
     
     date_str = datetime.now().strftime("%Y-%m-%d")
-    output_filename = f"output_{date_str}.xlsx"
+    output_filename = f"ets_time_records_{date_str}.xlsx"
     output_path = FILES_DIR / output_filename
     
     # Copy template file

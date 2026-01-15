@@ -370,7 +370,7 @@ def convert_excel_file(input_path: Path, template_bytes: bytes, output_dir: Path
 
         # Generate timestamped output filename
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        output_filename = f"output_{timestamp}.xlsx"
+        output_filename = f"ets_time_records_{timestamp}.xlsx"
         output_path = output_dir / output_filename
 
         # Ensure output directory exists
